@@ -119,6 +119,10 @@ const displayFrame = computed(() => {
       <a href="https://github.com/driblab/open-data" target="_blank" rel="noopener">
         Driblab open-data
       </a>
+      &nbsp;(4-minute sample) &nbsp;·&nbsp;
+      <a href="https://github.com/jamoussir1/pitch-viewer" target="_blank" rel="noopener">
+        Source code
+      </a>
     </v-footer>
   </v-app>
 </template>
