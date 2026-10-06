@@ -14,7 +14,8 @@
     "lint:oxlint": "oxlint . --fix",
     "lint:eslint": "eslint . --fix --cache",
     "format": "prettier --write --experimental-cli src/ scripts/",
-    "explore": "node scripts/explore-data.mjs"
+    "explore": "node scripts/explore-data.mjs",
+    "sample": "node scripts/make-sample.mjs"
   },
   "dependencies": {
     "@mdi/font": "^7.4.47",
