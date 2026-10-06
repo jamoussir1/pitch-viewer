@@ -1,5 +1,5 @@
 <script setup lang="ts">
-// Draws the pitch, the 22 players and the ball for ONE frame.
+// Draws the pitch, the 22 players and the ball for ONE frame, and highlights the selected player.
 // Pattern: "D3 computes, Vue renders".
 //   - D3 gives us scales (metres -> pixels) and path strings (the arcs).
 //   - Vue's template renders the <svg> elements and keeps them in sync with the props.
@@ -12,6 +12,12 @@ import { PITCH, TEAM_COLORS, isBallOnPitch } from '@/utils/pitch'
 const props = defineProps<{
   frame: Frame
   playersById: Map<number, Player>
+  selectedId: number | null
+}>()
+
+// The component never changes the store itself: it tells the parent what was clicked.
+const emit = defineEmits<{
+  select: [playerId: number | null]
 }>()
 
 // ---------- scales: metres -> pixels ----------
@@ -108,11 +114,17 @@ const playerMarks = computed(() =>
         cy: y(sample.y),
         number: player?.number ?? '?',
         label: player ? `${player.name} (#${player.number})` : `Player ${sample.id}`,
+        shortName: player?.name.split(' ').at(-1) ?? '',
         color: TEAM_COLORS[side],
         visible: sample.vis, // false = off camera, position estimated
+        selected: sample.id === props.selectedId,
       }
-    }),
+    })
+    // SVG has no z-index: later elements are drawn on top, so put the selected player last.
+    .sort((a, b) => Number(a.selected) - Number(b.selected)),
 )
+
+const hasSelection = computed(() => props.selectedId !== null)
 
 const ballMark = computed(() => {
   const ball = props.frame.ball
@@ -123,7 +135,13 @@ const ballMark = computed(() => {
 
 <template>
   <!-- viewBox = drawing coordinates; CSS width 100% makes it scale to any screen -->
-  <svg :viewBox="`0 0 ${width} ${height}`" class="pitch" role="img" aria-label="Football pitch">
+  <svg
+    :viewBox="`0 0 ${width} ${height}`"
+    class="pitch"
+    role="img"
+    aria-label="Football pitch"
+    @click="emit('select', null)"
+  >
     <!-- grass -->
     <rect :width="width" :height="height" fill="#2e7d32" />
     <rect
@@ -160,9 +178,13 @@ const ballMark = computed(() => {
       v-for="mark in playerMarks"
       :key="mark.id"
       :transform="`translate(${mark.cx}, ${mark.cy})`"
+      :opacity="hasSelection && !mark.selected ? 0.7 : 1"
       class="player"
+      @click.stop="emit('select', mark.id)"
     >
       <title>{{ mark.label }}</title>
+      <!-- highlight ring for the selected player -->
+      <circle v-if="mark.selected" r="18" class="highlight" />
       <circle v-if="mark.visible" r="12" :fill="mark.color" stroke="white" stroke-width="2" />
       <circle
         v-else
@@ -173,6 +195,7 @@ const ballMark = computed(() => {
         stroke-dasharray="4 3"
       />
       <text class="number" :opacity="mark.visible ? 1 : 0.8">{{ mark.number }}</text>
+      <text v-if="mark.selected" y="32" class="name">{{ mark.shortName }}</text>
     </g>
 
     <!-- ball (drawn last so it is on top) -->
@@ -201,6 +224,27 @@ const ballMark = computed(() => {
   fill: none;
   stroke: rgba(255, 255, 255, 0.85);
   stroke-width: 2;
+}
+
+.player {
+  cursor: pointer;
+}
+
+.highlight {
+  fill: rgba(255, 214, 0, 0.25);
+  stroke: #ffd600;
+  stroke-width: 3;
+}
+
+.name {
+  fill: white;
+  font-size: 13px;
+  font-weight: 700;
+  text-anchor: middle;
+  paint-order: stroke;
+  stroke: rgba(0, 0, 0, 0.7);
+  stroke-width: 3px;
+  pointer-events: none;
 }
 
 .number {

@@ -1,9 +1,11 @@
 <script setup lang="ts">
-// Milestone 3: the pitch now follows the playback store, driven by requestAnimationFrame.
+// App = the "container": it owns the data and talks to the store.
+// Child components get props and send events back up.
 import { computed, watch } from 'vue'
 
 import PitchView from '@/components/PitchView.vue'
 import PlaybackControls from '@/components/PlaybackControls.vue'
+import PlayerPanel from '@/components/PlayerPanel.vue'
 import { useMatchData } from '@/composables/useMatchData'
 import { usePlayback } from '@/composables/usePlayback'
 import { usePlaybackStore } from '@/stores/playback'
@@ -64,6 +66,21 @@ const displayFrame = computed(() => {
       </template>
     </v-app-bar>
 
+    <!-- Right-hand side panel: player list, stats, speed chart -->
+    <v-navigation-drawer v-if="data" location="end" permanent :width="380">
+      <PlayerPanel
+        :players="data.players"
+        :frames="data.frames"
+        :fps="data.info.fps"
+        :home="data.info.home"
+        :away="data.info.away"
+        :selected-id="playback.selectedPlayerId"
+        :position="playback.position"
+        @select="playback.selectPlayer"
+        @seek="playback.seek"
+      />
+    </v-navigation-drawer>
+
     <v-main>
       <v-container class="py-4" max-width="1200">
         <div v-if="loading" class="text-center py-16">
@@ -79,7 +96,12 @@ const displayFrame = computed(() => {
         </v-alert>
 
         <v-card v-else-if="data && currentFrame && displayFrame">
-          <PitchView :frame="displayFrame" :players-by-id="playersById" />
+          <PitchView
+            :frame="displayFrame"
+            :players-by-id="playersById"
+            :selected-id="playback.selectedPlayerId"
+            @select="playback.selectPlayer"
+          />
           <PlaybackControls :current-frame="currentFrame" />
           <v-divider />
           <v-card-text class="d-flex flex-wrap ga-4 py-2 text-caption text-medium-emphasis">

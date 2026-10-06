@@ -1,5 +1,5 @@
-// Pinia store: the single source of truth for playback.
-// Any component can read or change it (controls, pitch, later the player panel).
+// Pinia store: the single source of truth for playback and selection.
+// Any component can read or change it (controls, pitch, player panel).
 import { computed, ref } from 'vue'
 import { defineStore } from 'pinia'
 
@@ -18,6 +18,7 @@ export const usePlaybackStore = defineStore('playback', () => {
   const speed = ref<number>(1)
   const frameCount = ref(0)
   const fps = ref(10)
+  const selectedPlayerId = ref<number | null>(null)
 
   // ---------- getters (computed) ----------
   const frameIndex = computed(() => Math.floor(position.value))
@@ -33,6 +34,7 @@ export const usePlaybackStore = defineStore('playback', () => {
     fps.value = framesPerSecond
     position.value = 0
     playing.value = false
+    selectedPlayerId.value = null
   }
 
   function seek(index: number) {
@@ -61,12 +63,18 @@ export const usePlaybackStore = defineStore('playback', () => {
     speed.value = value
   }
 
+  /** Select a player; selecting the same player again clears the selection. */
+  function selectPlayer(id: number | null) {
+    selectedPlayerId.value = id === selectedPlayerId.value ? null : id
+  }
+
   return {
     position,
     playing,
     speed,
     frameCount,
     fps,
+    selectedPlayerId,
     frameIndex,
     lastIndex,
     isAtEnd,
@@ -79,5 +87,6 @@ export const usePlaybackStore = defineStore('playback', () => {
     pause,
     togglePlay,
     setSpeed,
+    selectPlayer,
   }
 })
