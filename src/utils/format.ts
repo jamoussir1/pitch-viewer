@@ -12,3 +12,9 @@ export function periodLabel(period?: number): string {
   if (period === 2) return '2nd half'
   return period ? `Period ${period}` : '-'
 }
+
+/** 75.3 -> "1:15" */
+export function formatSeconds(totalSeconds: number): string {
+  const whole = Math.floor(totalSeconds)
+  return `${Math.floor(whole / 60)}:${String(whole % 60).padStart(2, '0')}`
+}

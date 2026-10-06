@@ -193,7 +193,8 @@ const ballMark = computed(() => {
   display: block;
   width: 100%;
   height: auto;
-  border-radius: 8px;
+  /* keep the playback controls visible below the pitch on laptop screens */
+  max-height: calc(100vh - 250px);
 }
 
 .lines {

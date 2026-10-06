@@ -1,19 +1,42 @@
 <script setup lang="ts">
-// Milestone 2: header with match info + the pitch showing the FIRST frame of the sample.
-// In milestone 3, `currentFrame` will follow the playback instead of always being frame 0.
-import { computed } from 'vue'
+// Milestone 3: the pitch now follows the playback store, driven by requestAnimationFrame.
+import { computed, watch } from 'vue'
 
 import PitchView from '@/components/PitchView.vue'
+import PlaybackControls from '@/components/PlaybackControls.vue'
 import { useMatchData } from '@/composables/useMatchData'
-import { formatClock, periodLabel } from '@/utils/format'
+import { usePlayback } from '@/composables/usePlayback'
+import { usePlaybackStore } from '@/stores/playback'
+import { interpolateFrame } from '@/utils/interpolate'
 import { TEAM_COLORS } from '@/utils/pitch'
 
 // BASE_URL is "/" in dev and "/pitch-viewer/" on GitHub Pages (milestone 5).
 const SAMPLE_URL = `${import.meta.env.BASE_URL}data/683253_sample.jsonl`
 
 const { data, loading, error, playersById, reload } = useMatchData(SAMPLE_URL)
+const playback = usePlaybackStore()
+usePlayback() // starts/stops the requestAnimationFrame loop when playback.playing changes
 
-const currentFrame = computed(() => data.value?.frames[0])
+// When the data arrives, tell the store how many frames there are.
+watch(
+  data,
+  (match) => {
+    if (match) playback.reset(match.frames.length, match.info.fps)
+  },
+  { immediate: true },
+)
+
+// The real frame at the current index (used for the clock).
+const currentFrame = computed(() => data.value?.frames[playback.frameIndex])
+
+// What we draw: blended between this frame and the next for smooth movement.
+const displayFrame = computed(() => {
+  const frames = data.value?.frames
+  const current = currentFrame.value
+  if (!frames || !current) return undefined
+  const t = playback.position - playback.frameIndex // 0..1
+  return interpolateFrame(current, frames[playback.frameIndex + 1], t)
+})
 </script>
 
 <template>
@@ -42,7 +65,7 @@ const currentFrame = computed(() => data.value?.frames[0])
     </v-app-bar>
 
     <v-main>
-      <v-container class="py-6" max-width="1200">
+      <v-container class="py-4" max-width="1200">
         <div v-if="loading" class="text-center py-16">
           <v-progress-circular indeterminate color="primary" size="48" />
           <p class="mt-4">Loading tracking data…</p>
@@ -55,14 +78,12 @@ const currentFrame = computed(() => data.value?.frames[0])
           </template>
         </v-alert>
 
-        <v-card v-else-if="data && currentFrame">
-          <PitchView :frame="currentFrame" :players-by-id="playersById" />
-          <v-card-text class="d-flex flex-wrap ga-4 align-center text-medium-emphasis">
-            <span>
-              <v-icon icon="mdi-clock-outline" size="small" />
-              {{ formatClock(currentFrame.match_clock) }} · {{ periodLabel(currentFrame.period) }} ·
-              frame {{ currentFrame.frame }}
-            </span>
+        <v-card v-else-if="data && currentFrame && displayFrame">
+          <PitchView :frame="displayFrame" :players-by-id="playersById" />
+          <PlaybackControls :current-frame="currentFrame" />
+          <v-divider />
+          <v-card-text class="d-flex flex-wrap ga-4 py-2 text-caption text-medium-emphasis">
+            <span>Frame {{ currentFrame.frame }}</span>
             <v-spacer />
             <span><span class="legend" /> on camera</span>
             <span><span class="legend faded" /> off camera (estimated position)</span>
@@ -102,8 +123,8 @@ const currentFrame = computed(() => data.value?.frames[0])
 
 .legend {
   display: inline-block;
-  width: 12px;
-  height: 12px;
+  width: 10px;
+  height: 10px;
   border-radius: 50%;
   border: 2px solid white;
   background: #9e9e9e;
