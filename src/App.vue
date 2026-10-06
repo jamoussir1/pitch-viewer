@@ -1,39 +1,48 @@
 <script setup lang="ts">
-// Milestone 1: load the sample and show what we got (a "data check" screen).
-// In milestone 2 the card below is replaced by the pitch.
+// Milestone 2: header with match info + the pitch showing the FIRST frame of the sample.
+// In milestone 3, `currentFrame` will follow the playback instead of always being frame 0.
 import { computed } from 'vue'
 
+import PitchView from '@/components/PitchView.vue'
 import { useMatchData } from '@/composables/useMatchData'
+import { formatClock, periodLabel } from '@/utils/format'
+import { TEAM_COLORS } from '@/utils/pitch'
 
 // BASE_URL is "/" in dev and "/pitch-viewer/" on GitHub Pages (milestone 5).
 const SAMPLE_URL = `${import.meta.env.BASE_URL}data/683253_sample.jsonl`
 
-const { data, loading, error, frameCount, durationSeconds, reload } = useMatchData(SAMPLE_URL)
+const { data, loading, error, playersById, reload } = useMatchData(SAMPLE_URL)
 
-const firstFrame = computed(() => data.value?.frames[0])
-const lastFrame = computed(() => data.value?.frames.at(-1))
-
-const formatClock = (clock?: [number, number]) =>
-  clock ? `${clock[0]}:${String(clock[1]).padStart(2, '0')}` : '-'
+const currentFrame = computed(() => data.value?.frames[0])
 </script>
 
 <template>
   <v-app>
-    <v-app-bar color="primary" density="comfortable">
-      <v-app-bar-title>
+    <v-app-bar color="surface" density="comfortable" border="b">
+      <v-app-bar-title class="flex-0-0">
         <v-icon icon="mdi-soccer-field" class="mr-2" />
         Pitch Viewer
       </v-app-bar-title>
-      <template v-if="data" #append>
-        <span class="text-subtitle-1 mr-4">
-          {{ data.info.home.name }} {{ data.info.home.score }} - {{ data.info.away.score }}
-          {{ data.info.away.name }}
-        </span>
+
+      <!-- Header: teams, score, competition, date -->
+      <template v-if="data">
+        <v-spacer />
+        <div class="scoreline">
+          <span class="team-dot" :style="{ background: TEAM_COLORS.home }" />
+          <span>{{ data.info.home.name }}</span>
+          <strong class="score">{{ data.info.home.score }} - {{ data.info.away.score }}</strong>
+          <span>{{ data.info.away.name }}</span>
+          <span class="team-dot" :style="{ background: TEAM_COLORS.away }" />
+        </div>
+        <v-spacer />
+        <v-chip class="mr-4" prepend-icon="mdi-trophy-outline" variant="tonal">
+          {{ data.info.competition }} · {{ data.info.date }}
+        </v-chip>
       </template>
     </v-app-bar>
 
     <v-main>
-      <v-container class="py-8" max-width="720">
+      <v-container class="py-6" max-width="1200">
         <div v-if="loading" class="text-center py-16">
           <v-progress-circular indeterminate color="primary" size="48" />
           <p class="mt-4">Loading tracking data…</p>
@@ -46,56 +55,63 @@ const formatClock = (clock?: [number, number]) =>
           </template>
         </v-alert>
 
-        <v-card
-          v-else-if="data"
-          title="Data check"
-          subtitle="Milestone 1"
-          prepend-icon="mdi-database-check"
-        >
-          <v-list density="compact">
-            <v-list-item
-              prepend-icon="mdi-trophy"
-              :title="data.info.competition"
-              :subtitle="data.info.date"
-            />
-            <v-list-item
-              prepend-icon="mdi-filmstrip"
-              :title="`${frameCount} frames (${(durationSeconds / 60).toFixed(1)} min at ${data.info.fps} FPS)`"
-              :subtitle="`Clock ${formatClock(firstFrame?.match_clock)} -> ${formatClock(lastFrame?.match_clock)}`"
-            />
-            <v-list-item
-              prepend-icon="mdi-account-group"
-              :title="`${data.players.length} players on the pitch`"
-            />
-          </v-list>
-
-          <v-table density="compact" height="360" fixed-header>
-            <thead>
-              <tr>
-                <th>#</th>
-                <th>Name</th>
-                <th>Pos</th>
-                <th>Team</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr v-for="player in data.players" :key="player.id">
-                <td>{{ player.number }}</td>
-                <td>{{ player.name }}</td>
-                <td>{{ player.position }}</td>
-                <td>{{ player.side === 'home' ? data.info.home.name : data.info.away.name }}</td>
-              </tr>
-            </tbody>
-          </v-table>
+        <v-card v-else-if="data && currentFrame">
+          <PitchView :frame="currentFrame" :players-by-id="playersById" />
+          <v-card-text class="d-flex flex-wrap ga-4 align-center text-medium-emphasis">
+            <span>
+              <v-icon icon="mdi-clock-outline" size="small" />
+              {{ formatClock(currentFrame.match_clock) }} · {{ periodLabel(currentFrame.period) }} ·
+              frame {{ currentFrame.frame }}
+            </span>
+            <v-spacer />
+            <span><span class="legend" /> on camera</span>
+            <span><span class="legend faded" /> off camera (estimated position)</span>
+          </v-card-text>
         </v-card>
       </v-container>
     </v-main>
 
     <v-footer app class="text-caption justify-center">
-      Data: &nbsp;
+      Tracking data: &nbsp;
       <a href="https://github.com/driblab/open-data" target="_blank" rel="noopener">
         Driblab open-data
       </a>
     </v-footer>
   </v-app>
 </template>
+
+<style scoped>
+.scoreline {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 1.05rem;
+}
+
+.score {
+  font-size: 1.3rem;
+  padding: 0 6px;
+}
+
+.team-dot {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  display: inline-block;
+}
+
+.legend {
+  display: inline-block;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  border: 2px solid white;
+  background: #9e9e9e;
+  vertical-align: middle;
+}
+
+.legend.faded {
+  background: rgba(0, 0, 0, 0.35);
+  border: 2px dashed #9e9e9e;
+}
+</style>
